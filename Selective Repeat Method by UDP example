@@ -1,0 +1,248 @@
+---------------------------------------- sender in Java not working well (wait and send not absolutely SR) but it can be beneficial for exercising
+import java.io.*;
+import java.net.*;
+import java.util.*;
+
+public class Sender2 {
+ public static void main(String[] argv) throws Exception{
+
+  //argument initilization
+  String file_path = argv[0];
+  int receiver_port = Integer.parseInt(argv[1]);
+  int window_size_N = Integer.parseInt(argv[2]);
+  int retransmission_timeout = Integer.parseInt(argv[3]);
+
+  //datagramsocket initilization
+  DatagramSocket socket = new DatagramSocket();
+  InetAddress ip = InetAddress.getByName("localhost");
+
+  //image reading from folder
+  File file = new File(file_path);
+  FileInputStream inputStream = new FileInputStream(file);
+  byte imageInBytes[] = new byte[(int) file.length()];
+  //Reading data into the byte array
+  int numOfBytes = inputStream.read(imageInBytes);
+  System.out.println(numOfBytes);
+  //find number of packets
+  int numOfPackets = 0;
+  if(numOfBytes%1022 == 0)
+   numOfPackets = (int)(numOfBytes/1022);
+  else
+   numOfPackets = (int)(numOfBytes/1022) + 1;
+
+  //dividing folder into packets max_size = 1024byte;
+  int sequenceNum = 1;
+  //ArrayList<DatagramPacket> packets = new ArrayList<DatagramPacket>();
+  DatagramPacket[] packets = new DatagramPacket[numOfPackets];
+  int all_byte_counter = 0;
+  int[] packet_sizes = new int[numOfPackets];
+  for(int i = 0; i < numOfPackets; i++)
+  {
+   if (i == numOfPackets - 1 && numOfBytes % 1022 != 0) packet_sizes[i] = 2 + numOfBytes-1022*(int)(numOfBytes/1022);//last packet size is determined
+   else packet_sizes[i] = 1024;
+  }
+  System.out.println(Arrays.toString(packet_sizes));
+  for (int i = 0; i < numOfPackets; i++) //All bytes
+  {
+   byte[] packetInBytes;
+   packetInBytes = new byte[packet_sizes[i]];
+   packetInBytes[1] = (byte)((sequenceNum) & 0xFF);//most significant bit of sequence number  (big-endian form)
+   packetInBytes[0] = (byte)((sequenceNum>>8) & 0xFF);//least significant bit of sequence number (big-endian form)
+   for(int j = 2; j < packet_sizes[i]; j++)// adding the bytes in packet
+   {
+    packetInBytes[j] = imageInBytes[all_byte_counter];
+    all_byte_counter++;
+   }
+   DatagramPacket dp = new DatagramPacket(packetInBytes, packet_sizes[i], ip, receiver_port);//creating the UDP packet
+   //packets.add(dp);// adding the packet in packets arraylist to make the conrol over sending process is more clear and easier.
+   packets[i] = dp;
+   sequenceNum++;
+  }
+
+
+  /** Thread ****/
+  //send the packets in packets array and Thread used to keep the time outs and detection of received acks
+  boolean[] ack_states = new boolean[numOfPackets + 1];
+  for(int i = 0; i < ack_states.length; i++) ack_states[i] = false;
+  int win_base = 0;
+  int win_last = 0;
+  MainThread[] threadss = new MainThread[numOfPackets];
+  for(int i = 0; i < window_size_N; i++)
+  {
+   threadss[i] = new MainThread(packets[i], socket, retransmission_timeout);
+   threadss[i].start();
+  }
+  //ArrayList<Integer> prev = new ArrayList<Integer>();
+  while(win_base + window_size_N - 1 < numOfPackets)
+  {
+   if(win_base + window_size_N - 1 < numOfPackets) win_last = win_base + window_size_N - 1;
+   else win_last = numOfPackets;
+
+
+   byte[] recv = new byte[2];
+   DatagramPacket rp = new DatagramPacket(recv, 2);
+   socket.receive(rp);
+   byte[] ack = rp.getData();
+   int ack_seqNum = (ack[1] & 0xFF) + (int)(Math.pow(2, 8))*(ack[0] & 0xFF);
+   if(ack_states[ack_seqNum - 1] == false){
+    ack_states[ack_seqNum - 1] = true;
+    threadss[ack_seqNum - 1].interrupt();
+    win_base++;
+   }
+   if(threadss[ack_seqNum-1].isAlive() && ack_seqNum < win_base && ack_seqNum >= win_last)
+   {
+    ack_states[ack_seqNum - 1] = true;
+    threadss[ack_seqNum - 1].interrupt();
+    win_base++;
+   }
+   if(ack_states[win_last] == false)
+   {
+    threadss[win_last] = new MainThread(packets[win_last], socket, retransmission_timeout);
+    threadss[win_last].start();
+   }
+  }
+  //close the connection witout waiting the close packet ack
+  byte close[] = {(byte)0,(byte)0};
+  DatagramPacket dp = new DatagramPacket(close, 2, ip, receiver_port);
+  socket.send(dp);
+  socket.close();
+  inputStream.close();
+ }
+}
+
+//The main thread tryto send the packet and if it sends packet succesfully the thread stops itself.
+class MainThread extends Thread
+{ 
+ int timeout;
+ DatagramPacket packet;
+ DatagramSocket socket;
+ MainThread (DatagramPacket packet, DatagramSocket socket, int timeout)
+ {
+  this.timeout = timeout;
+  this.packet = packet;
+  this.socket = socket;
+
+ }
+ public void run() {
+  try {
+   while(true) {
+    // Send packet
+    socket.send(packet);
+    // Wait for main thread notification or timeout
+    Thread.sleep(timeout);
+   }
+  } 
+  // Stop if main thread interrupts this thread
+  catch (Exception e){
+   return;
+  }
+ }
+}
+
+---------------------------------------- receiver in pyhton
+# -*- coding: utf-8 -*-
+import socket
+import random
+import threading
+import sys
+from time import sleep, time
+
+# Constants
+PACKET_SIZE = 1024
+HEADER_SIZE = 2
+IP = "127.0.0.1"
+FILENAME = "received.png"
+
+def send_ACK(sock, addr, packet_no):
+    sock.sendto(packet_no.to_bytes(HEADER_SIZE, byteorder="big"), addr)
+    
+class DelayedACKThread(threading.Thread):
+    def __init__(self, sock, addr, packet_no, max_delay):
+        super().__init__()
+        
+        self.sock = sock
+        self.addr = addr
+        self.packet_no = packet_no
+        self.max_delay = max_delay
+        
+    def run(self):
+        delay = random.random() * self.max_delay / 1000
+        sleep(delay)
+        
+        try:
+            send_ACK(self.sock, self.addr, self.packet_no)
+        except OSError:
+            pass
+
+# Cmd args
+PORT = int(sys.argv[1])
+N = int(sys.argv[2])
+LOSS_PROB = float(sys.argv[3])
+DELAY = int(sys.argv[4]) # in ms
+
+# Socket
+sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+sock.bind((IP, PORT))
+
+# Selective repeat stuff
+received_numbers = set()
+buf = {} # buffer
+rcv_base = 1
+
+# Main loop
+sender_addr = None
+while True:
+    # Receive packet
+    if sender_addr is None:
+        packet, sender_addr = sock.recvfrom(PACKET_SIZE)
+        start_time = time()
+    else:
+        packet = sock.recv(PACKET_SIZE)
+        
+    packet_no = int.from_bytes(packet[:HEADER_SIZE], byteorder="big")
+    data_bytes = packet[HEADER_SIZE:PACKET_SIZE]
+    
+    # Uncomment this to print the received packet no and data size (before applying drop)
+    #print(packet_no, len(data_bytes))
+    
+    # Terminate program if packet_no is 0
+    if packet_no == 0:
+        end_time = time()
+        break
+    
+    # Data packets
+    else:
+        # Randomly drop some packets
+        if random.random() > LOSS_PROB:
+            ack_thread = DelayedACKThread(sock, sender_addr, packet_no, DELAY)
+                
+            if packet_no in range(rcv_base, rcv_base + N):
+                ack_thread.start()
+                
+                # Buffer
+                if packet_no not in received_numbers:
+                    buf[packet_no] = data_bytes
+                    received_numbers.add(packet_no)
+                    
+                    # Advance rcv_base
+                    while rcv_base in received_numbers:
+                        rcv_base += 1
+                    received_numbers -= set(range(rcv_base))
+                        
+            elif packet_no in range(rcv_base - N, rcv_base):
+                ack_thread.start()
+            
+sock.close()
+
+# Display time info
+print("Time elapsed:", end_time - start_time)
+
+# Save to the disk
+print("Writing received file to the disk. Please wait...")
+buf_concat = bytes()
+for packet_no in sorted(buf):
+    buf_concat += buf[packet_no]
+    
+with open(FILENAME, "wb") as f:
+    f.write(buf_concat)
+    
