@@ -1,0 +1,456 @@
+------------------------------------------------ receiver in Java
+import java.io.*;
+import java.net.*;
+import java.util.*;
+public class ImageLabeler{
+  DataOutputStream out = null;
+  BufferedReader in = null;
+  DataInputStream inData=null;
+  Socket s = null;
+  private int bear1_size = 75537;
+  private int bear2_size = 48224;
+  private int bear3_size = 21383;
+  private int cat1_size = 65530;
+  private int cat2_size = 16803;
+  private int cat3_size = 72825;
+  private int dog1_size = 38146;
+  private int dog2_size = 58300;
+  private int dog3_size = 56439;
+  private int shark1_size = 19017;
+  private int shark2_size = 19041;
+  private int shark3_size = 18505;
+  
+  
+  public static void main(String[] argv) throws Exception{
+    ImageLabeler a = new ImageLabeler("localhost"/*argv[0]*/, 60000 /*Integer.parseInt(args[1])*/);
+  }
+  public ImageLabeler(String host_name, int port)
+  {
+    ArrayList<Integer> sizes = new ArrayList<Integer>();
+    sizes.add(bear1_size);
+    sizes.add(bear2_size);
+    sizes.add(bear3_size);
+    sizes.add(cat1_size);
+    sizes.add(cat2_size);
+    sizes.add(cat3_size);
+    sizes.add(dog1_size);
+    sizes.add(dog2_size);
+    sizes.add(dog3_size);
+    sizes.add(shark1_size);
+    sizes.add(shark2_size);
+    sizes.add(shark3_size);
+    try
+    {
+      s = new Socket(host_name, port);
+      System.out.println("server is connected");
+      //sends output to socket
+      out = new DataOutputStream(s.getOutputStream());
+      //takes input from socket
+      in = new BufferedReader(new InputStreamReader(s.getInputStream()));
+      inData = new DataInputStream(s.getInputStream());
+    }
+    catch(UnknownHostException u)
+    {
+      System.out.println(u);
+    }
+    catch(IOException i)
+    {
+      System.out.println(i);
+    }
+    try
+    {
+      //authentication
+      out.writeBytes("USER bilkentstu\r\n");
+      System.out.println("Server :" + in.readLine());
+      out.writeBytes("PASS cs421f2019\r\n");
+      System.out.println("Server :" + in.readLine());
+      
+      //int numberOfIGET_request = 0;
+      while(true)
+      {
+        //numberOfIGET_request++;
+        System.out.print("Please enter command: ");
+        sen = inFromUser.readLine();
+        if (sen.contains("EXIT")) 
+        {
+          
+        }
+        ArrayList<Byte> image_array_1 = new ArrayList<Byte>();
+        ArrayList<Byte> image_array_2 = new ArrayList<Byte>();
+        ArrayList<Byte> image_array_3 = new ArrayList<Byte>();
+        int size_of_image_1=0;
+        int size_of_image_2=0;
+        int size_of_image_3=0;
+        String imageName1="";
+        String imageName2="";
+        String imageName3="";
+        
+        //IGET request
+        out.writeBytes("IGET\r\n");
+        
+        //***image***1111
+        StringBuffer sb = new StringBuffer();
+        for(int i= 0; i<7;i++)//to find size of the image1111
+        {
+          if(i>3)
+            sb.append(String.format("%02X",(byte)inData.readByte()));
+          else
+            inData.readByte();
+        }
+        String hex_image1 = sb.toString();
+        size_of_image_1 = Integer.parseInt(hex_image1,16);
+        System.out.println("Size_1: " + size_of_image_1);
+        int curr = 0;
+        while(curr<size_of_image_1)
+        {
+          curr++;
+          image_array_1.add((byte)inData.readByte());
+        }
+        
+        //***image***2222
+        StringBuffer sb2 = new StringBuffer();
+        for(int i= 0; i<7;i++)//to find size of the image1111
+        {
+          if(i>3)
+            sb2.append(String.format("%02X",(byte)inData.readByte()));
+          else
+            inData.readByte();
+        }
+        String hex_image2 = sb2.toString();
+        size_of_image_2 = Integer.parseInt(hex_image2,16);
+        System.out.println("Size_2: " + size_of_image_2);
+        curr = 0;
+        while(curr<size_of_image_2 )
+        {
+          curr++;
+          image_array_2.add((byte)inData.readByte());
+        }
+        
+        //***image***3333
+        StringBuffer sb3 = new StringBuffer();
+        for(int i= 0; i<7;i++)//to find size of the image1111
+        {
+          if(i>3)
+            sb3.append(String.format("%02X",(byte)inData.readByte()));
+          else
+            inData.readByte();
+        }
+        String hex_image3 = sb3.toString();
+        size_of_image_3 = Integer.parseInt(hex_image3,16);
+        System.out.println("Size_3: " + size_of_image_3);
+        curr = 0;
+        while(curr<size_of_image_3 )
+        {
+          curr++;
+          image_array_3.add((byte)inData.readByte());
+        }
+        curr=0;
+        
+        for(int cont:sizes)
+        {
+          if(cont==size_of_image_1)
+          {
+            if(sizes.indexOf(cont) < 3)
+              imageName1="bear";
+            else if(sizes.indexOf(cont) >= 3 && sizes.indexOf(cont) <6)
+              imageName1="cat";
+            else if(sizes.indexOf(cont) >= 6 && sizes.indexOf(cont) <9)
+              imageName1="dog";
+            else
+              imageName1="shark";
+          }
+          if(cont==size_of_image_2)
+          {
+            if(sizes.indexOf(cont) < 3)
+              imageName2="bear";
+            else if(sizes.indexOf(cont) >= 3 && sizes.indexOf(cont) <6)
+              imageName2="cat";
+            else if(sizes.indexOf(cont) >= 6 && sizes.indexOf(cont) <9)
+              imageName2="dog";
+            else
+              imageName2="shark";
+          }
+          if(cont==size_of_image_3)
+          {
+            if(sizes.indexOf(cont) < 3)
+              imageName3="bear";
+            else if(sizes.indexOf(cont) >= 3 && sizes.indexOf(cont) <6)
+              imageName3="cat";
+            else if(sizes.indexOf(cont) >= 6 && sizes.indexOf(cont) <9)
+              imageName3="dog";
+            else
+              imageName3="shark";
+          }
+          
+        }
+        out.writeBytes("ILBL " + imageName1+","+imageName2+","+imageName3 +"\r\n");
+        System.out.println("\n***"+ in.readLine() +"***");
+      }
+      out.writeBytes("EXIT\r\n");//existexistexistexistexistexistexist
+    }
+    catch(IOException i)
+    {
+      System.out.println(i);
+    }
+    // close connection
+    try
+    {
+      in.close();
+      out.close();
+      s.close();
+    }
+    catch(IOException i)
+    {
+      System.out.println(i);
+    }
+  }
+}
+
+/*
+ * StringBuilder sb = new StringBuilder();
+ for(int i= 0; i<7;i++)//to find size of the image1111
+ {
+ (byte)inData.readByte();
+ if(i>3)
+ sb.append(String.format("%02X",(byte)inData.readByte()));
+ }
+ String hex_image1=sb.toString();
+ */
+
+------------------------------------------------ sender
+
+# -*- coding: utf-8 -*-
+import socket
+import random
+import sys
+import os
+
+ENCODING = "ascii"
+NEWLINE = "\r\n"
+USERNAME = "bilkentstu"
+PASS = "cs421f2019"
+
+SERVER_SHUTDOWN_MESSAGE = "Server shutdown. Please fix your code according to the response message and retry."
+Bear =  ["bear1.jpg",
+         "bear2.jpg",
+         "bear3.jpg"]
+
+Cat =   ["cat1.jpg",
+         "cat2.jpg",
+         "cat3.jpg"]
+
+Dog =   ["dog1.jpg",
+         "dog2.jpg",
+         "dog3.jpg"]
+
+Shark = ["shark1.jpg",
+         "shark2.jpg",
+         "shark3.jpg"]
+
+Labels = [Bear, Cat, Dog, Shark]
+
+
+HEADER_SIZE = 2
+MAX_DATA_SIZE = 2**(HEADER_SIZE*8) - 1
+
+# Socket stuff
+IP = sys.argv[1]
+CONTROL_PORT = int(sys.argv[2])
+
+class WrongLabelingException(Exception):
+    pass
+
+class NoSuchLabelException(Exception):
+    pass
+
+class ServerShutdownException(Exception):
+    pass
+       
+
+def send_response(s, success, info=""):
+    response = "OK" if success else "INVALID " + info
+    response = response + "\r\n"
+    s.sendall(response.encode())
+
+def send_iget_response(s, success):
+    code = "ISND"
+    image, label_i = select_random_image()
+
+    myfile = open(os.path.join("images", image), 'rb')
+    data = myfile.read()
+    size = len(data)
+    bytesize = size.to_bytes(3, byteorder="big")
+
+    response = code.encode()+bytesize+data
+    s.sendall(response)
+
+    return label_i
+
+def receive_command(f):
+    line = f.readline()[:-len(NEWLINE)]
+    idx = line.find(" ")
+    
+    if idx == -1:
+        idx = len(line)
+    
+    cmd = line[:idx]
+    args = line[idx+1:]
+    print("Command received:", cmd, args)
+    return cmd, args
+
+def shutdown():
+    print(SERVER_SHUTDOWN_MESSAGE)
+    raise ServerShutdownException
+
+def auth_check(f, conn):
+    
+    # Username check
+    check = False
+    cmd, args = receive_command(f)
+    
+    if cmd == "USER":
+        if args == USERNAME:
+            send_response(conn, success=True)
+            check = True
+        else:
+            send_response(conn, success=False, info="Wrong username.")
+    else:
+        send_response(conn, success=False, info="Wrong command. Expecting USER.")
+        
+    if not check:
+        return check
+        
+    # Password check
+    check = False
+    cmd, args = receive_command(f)
+    if cmd == "PASS":
+        if args == PASS:
+            send_response(conn, success=True)
+            check = True
+        else:
+            send_response(conn, success=False, info="Wrong password.")
+    else:
+        send_response(conn, success=False, info="Wrong command. Expecting PASS.")
+    
+    if not check:
+        return check
+        
+
+def select_random_image():
+    label_index = random.randint(0, 3)
+    sel_index = random.randint(0, 2)
+
+    label = Labels[label_index]
+    sel_image = label[sel_index]
+    return sel_image, label_index
+
+def label_check(args, labellist):
+    retrived_labellist = [0,0,0]
+    retrived_labellist = args.split(",")
+    retrived_labellist = label_enumerator(retrived_labellist)
+    wrong_labels = [True, True, True]
+
+    i = 0
+    while i<3:
+        if labellist[i] != retrived_labellist[i]:
+            wrong_labels[i] = False
+        i += 1
+    return wrong_labels
+
+def label_enumerator(labellist):
+    length = len(labellist)
+    for i in range(length):
+        if labellist[i] == 'bear':
+            labellist[i] = 0
+        elif labellist[i] == 'cat':
+            labellist[i] = 1
+        elif labellist[i] == 'dog':
+            labellist[i] = 2
+        elif labellist[i] == 'shark':
+            labellist[i] = 3
+        else:
+            labellist[i] = 4
+            raise NoSuchLabelException
+    return labellist
+
+# =============================================================================
+# MAIN
+# =============================================================================
+if __name__ == "__main__":
+
+    labellist = [0,0,0]
+
+    # Create socket
+    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    
+
+    try:
+        # Listen from the control port
+        s.bind((IP, CONTROL_PORT))
+        s.listen(1)
+        conn, addr = s.accept()
+        print("Client connected.")
+        
+        # Readfile
+        f = conn.makefile(buffering=1, encoding=ENCODING, newline=NEWLINE)
+        
+        # Authenticate and get client data port
+        check = auth_check(f, conn)
+        if check == False:
+            shutdown()
+            
+        # Main loop
+        while True:
+            cmd, args = receive_command(f)
+            
+            if cmd == "IGET":               
+                # Send IGET response
+                i = 0
+                while i < 3:
+                    label = send_iget_response(conn, success=True)
+                    labellist[i] = label
+                    i += 1
+            
+            elif cmd == "ILBL":
+                try:
+                    label_res = label_check(args, labellist)
+                    false_count = 0
+                    i = 0
+                    while i < 3:
+                        if label_res[i] == False:
+                            false_count += 1
+                        i += 1
+                    if false_count != 0:
+                        raise WrongLabelingException
+                    break
+                except WrongLabelingException:
+                    send_response(conn, success=False, info=str(false_count) + " of the label(s) is/are wrong.")
+               
+                except NoSuchLabelException:
+                    send_response(conn, success=False, info= "No such label(s) found.")
+                
+                else:
+                    send_response(conn, success=True)
+            
+            elif cmd == "EXIT":
+                send_response(conn, success=True)
+                break
+            
+            elif cmd in ["USER", "PASS"]:
+                send_response(conn, success=False, info=cmd + " command is already sent and processed.")
+                shutdown()
+                
+            else:
+                send_response(conn, success=False, info="Unknown command.")
+                shutdown()
+        
+    except ServerShutdownException:
+        pass
+    
+    except ConnectionResetError as e:
+        print(e)
+        
+    finally:
+        conn.close()
+        s.close()
+    
